@@ -129,8 +129,13 @@
             			isbnOrIssnObj.dedupe = $(this).find('input.ic-dedupe').attr('checked');
             			jsonData.isbnOrIssn.push(isbnOrIssnObj);
 			        });
+					
 			        jsonData.resourceFormat = $("#resource_format").val();
 			        jsonData.resourceType = $("#resource_type").val();
+			        jsonData.orderNumber = $("#order_number").val();
+			        jsonData.currentStartDate = $("#current_start_date").val();
+			        jsonData.currentEndDate = $("#current_end_date").val();
+			        jsonData.userLimit = $("#user_limit").val();
 			        jsonData.subject = [];
 			        $('div.subject-record').each(function() {
 			            var subjectObject={};
@@ -152,6 +157,12 @@
 			            organizationObject.column=$(this).find('input').val();
 			            organizationObject.organizationRole=$(this).find('select').val();
 			            jsonData.organization.push(organizationObject);
+			        });
+			        jsonData.purchaseSite = [];
+			        $('div.purchaseSite-record').each(function() {
+			            var purchaseSiteObject={}
+			            purchaseSiteObject.column=$(this).find('input').val();
+			            jsonData.purchaseSite.push(organizationObject);
 			        });
 			        var configuration = JSON.stringify(jsonData);
 			        var orgNameImported = '';
@@ -204,6 +215,10 @@
 		$resourceAltURLColumn=intval($jsonData['altUrl'])-1;
 		$resourceTypeColumn=intval($jsonData['resourceType'])-1;
 		$resourceFormatColumn=intval($jsonData['resourceFormat'])-1;
+		$resourceOrderNumberColumn=intval($jsonData['orderNumber'])-1;
+		$resourceCurrentStartDateColumn=intval($jsonData['currentStartDate'])-1;
+		$resourceCurrentEndDateColumn=intval($jsonData['currentEndDate'])-1;
+		$resourceUserLimitColumn=intval($jsonData['userLimit'])-1;
 
 		//get all resource formats
 		$resourceFormatArray = array();
@@ -219,6 +234,17 @@
 		$resourceFormatArray = array();
 		$resourceFormatObj = new ResourceFormat();
 		$resourceFormatArray = $resourceFormatObj->allAsArray();
+
+		//get all purchase sites
+		$purchaseSiteArray = array();
+		$purchaseSiteObj = new PurchaseSite();
+		$purchaseSiteArray = $purchaseSiteObj->allAsArray();
+
+		//get all possible expressions of user limits 
+		// (eg. the number of concurrent users)
+		$userLimitArray = array();
+		$userLimitObj = new UserLimit();
+		$userLimitArray = $userLimitObj->allAsArray();
 
 		//get all subjects
 		$generalSubjectArray = array();
@@ -253,6 +279,9 @@
 			$organizationsAttached = 0;
 			$resourceTypeInserted = 0;
 			$resourceFormatInserted = 0;
+			$resourceUserLimitInserted = 0;
+			$resourcePurchaseSiteInserted = 0;
+			$resourcePurchaseSiteAttached = 0;
 			$generalSubjectInserted = 0;
 			$aliasInserted = 0;
 			$noteInserted = 0;
@@ -372,6 +401,28 @@
 							}
 						}
 
+						// If max user limit is mapped, check to see if it exists
+						$userLimitID = null;
+						if($jsonData['userLimit'] != '')
+						{
+							$index = searchForShortName($data[$userLimitColumn], $userLimitArray);
+							if($index !== null)
+							{
+								$userLimitID = $userLimitArray[$index]['userLimitID'];
+							}
+							else if($index === null && $data[$resourceUserLimitColumn] != '') //If user limit expression does not exist, add it to the database
+							{
+								$resourceUserLimitObj = new UserLimit();
+								$resourceUserLimitObj->shortName = $data[$resourceTypeColumn];
+								$resourceUserLimitObj->save();
+								$resourceUserLimitID = $resourceUserLimitObj->primaryKey;
+								$resourceUserLimitArray = $resourceUserLimitObj->allAsArray();
+								$resourceUserLimitInserted++;
+							}
+						}
+
+						
+
 						// If Subject is mapped, check to see if it exists
 						$generalDetailSubjectLinkIDArray = array();
 						foreach($jsonData['subject'] as $subject)
@@ -425,10 +476,14 @@
 						$resource->updateDate       = '';
 						$resource->titleText        = trim($data[$resourceTitleColumn]);
 						$resource->descriptionText  = trim($data[$resourceDescColumn]);
+						$resource->orderNumber      = trim($data[$orderNumberColumn]);
+						$resource->currentStartDate = trim($data[$orderCurrentStartDate]);
+						$resource->currentEndDate   = trim($data[$orderCurrentStartDate]);
 						$resource->resourceURL      = trim($data[$resourceURLColumn]);
 						$resource->resourceAltURL   = trim($data[$resourceAltURLColumn]);
 						$resource->resourceTypeID   = $resourceTypeID;
 						$resource->resourceFormatID = $resourceFormatID;
+						$resource->userLimitID      = $resourceUserLimitID;
 						//$resource->providerText     = $data[$_POST['providerText']];
 						$resource->statusID         = 1;
 						$resource->save();
@@ -597,54 +652,57 @@
 								$organizationLink->save();
 							}
 						}
-					}
-					elseif ($deduping_count == 1)
-					{
-						$resources = $resourceObj->getResourceByIsbnOrISSN($deduping_values);
-						$resource = $resources[0];
-					}
-					foreach($jsonData['parent'] as $parent)
-					{
-						if($parent === "") //Skip parent if column reference is blank
+
+						// Handle purchasing sites
+						foreach($jsonData['purchaseSite'] as $purchaseSite)
 						{
-							continue;
-						}
-						if ($data[intval($parent)-1] && ($deduping_count == 0 || $deduping_count == 1) ) // Do we have a parent resource to create?
-						{
-							// Search if such parent exists
-							$numberOfParents = count($resourceObj->getResourceByTitle($data[intval($parent)-1]));
-							$parentID = null;
-							if ($numberOfParents == 0)
+							if($purchaseOrganization['column'] === "") //Skip purchase sites if column reference is blank
 							{
-								// If not, create parent
-								$parentResource = new Resource();
-								$parentResource->createLoginID = $loginID;
-								$parentResource->createDate    = date( 'Y-m-d' );
-								$parentResource->titleText     = $data[intval($parent)-1];
-								$parentResource->statusID      = 1;
-								$parentResource->save();
-								$parentID = $parentResource->resourceID;
-								$parentInserted++;
+								continue;
 							}
-							elseif ($numberOfParents == 1)
-							{
-								// Else, attach the resource to its parent.
-								$parentResource = $resourceObj->getResourceByTitle($data[intval($parent)-1]);
-								$parentID = $parentResource[0]->resourceID;
-								$parentAttached++; 
-							}
-							if ($numberOfParents == 0 || $numberOfParents == 1)
-							{
-								$resourceRelationship = new ResourceRelationship();
-								$resourceRelationship->resourceID = $resource->resourceID;
-								$resourceRelationship->relatedResourceID = $parentID;
-								$resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
-								if (!$resourceRelationship->exists())
+							
+
+							
+							$purchaseSiteName = trim($data[intval($purchaseSite['column'])-1]);
+
+							$purchaseSite = new PurchaseSite();
+							
+							$purchaseSiteID = false;
+							
+							// Search if such purchase site already exists
+							$purchaseSiteExists = $purchaseSite->alreadyExists($purchaseSiteName);
+								$parentID = null;
+								if (!$purchaseSiteExists)
 								{
-									$resourceRelationship->save();
+									// If not, create it
+									$purchaseSite->shortName = $purchaseSiteName;
+									$purchaseSite->save();
+									$purchaseSiteID = $purchaseSite->organizationID();
+									$purchaseSitesInserted++;
+									array_push($arrayOrganizationsCreated, $organizationName);
+								}
+								elseif ($purchaseSiteExists == 1)
+								{
+									$purchaseSiteID = $purchaseSite->getPurchaseSiteIDByName($purchaseSiteName);
+									$purchaseSitesAttached++;
+								}
+								else
+								{
+									print "<p>"._("Error: more than one purchase site is called ").$purchaseSiteName._(" Please consider deduping.")."</p>";
 								}
 							}
+							// Let's link the resource and the purchase site.
+							
+							if($purchaseSiteID)
+							{
+								$purchaseSiteLink = new ResourcePurchaseSiteLink();
+								$purchaseSiteLink->organizationRoleID = $roleID;
+								$purchaseSiteLink->resourceID = $resource->resourceID;
+								$purchaseSiteLink->purchaseSiteID = $purchaseSiteID;
+								$purchaseSiteLink->save();
+							}
 						}
+
 					}
 				}
 				$row++;
@@ -653,6 +711,7 @@
 			print "<p>" . ($row - 1) . _(" rows have been processed. ").$inserted._(" rows have been inserted.")."</p>";
 			print "<p>".$parentInserted._(" parents have been created. ").$parentAttached._(" resources have been attached to an existing parent.")."</p>";
 			print "<p>".$organizationsInserted._(" organizations have been created");
+			print "<p>".$purchaseSitesInserted._(" purchase sites have been created");
 			if (count($arrayOrganizationsCreated) > 0)
 			{
 				print "<ol>";
@@ -663,6 +722,7 @@
 				print "</ol>";
 			}
 			print ". $organizationsAttached" . _(" resources have been attached to an existing organization.") . "</p>";
+			print ". $purchaseSitesAttached" . _(" resources have been attached to an existing purchasing site.") . "</p>";
 			print "<p>" . $resourceTypeInserted . _(" resource types have been created") . "</p>";
 			print "<p>" . $resourceFormatInserted . _(" resource formats have been created") . "</p>";
 			print "<p>" . $generalSubjectInserted . _(" general subjects have been created") . "</p>";
