@@ -205,6 +205,19 @@
 						}
 					?>
 				</div><p><a id='add_organization' href='#'><?php echo _("+ Add another organization set");?></a></p></fieldset>
+
+				<fieldset><legend><?php echo _("Purchase Sites");?></legend><div id='resource_purchase_site'>
+				<?php
+					if(count($configuration["purchase_site"]) > 0) {
+						foreach($configuration["purchase_site"] as $purchase_site) {
+							echo "<p><span class='ic-label'>" . _("Purchase Site") . "</span><span><input class='ic-column' value='" . $purchase_site . "' /></span></p>";
+						}
+					}
+					else {
+						echo "<p><span class='ic-label'>" . _("Purchase Site") . "</span><span><input class='ic-column' value='' /></span></p>";
+					}
+				?>
+			</div><p><a id='add_purchase_site' href='#'><?php echo _("+ Add another purchase site")?></a></p></fieldset>
 			
 			
 
@@ -255,6 +268,12 @@
    		e.preventDefault();
    		$('#resource_parent').append (
    			"<p><span class='ic-label'><?php echo _('Parent Resource');?></span><span><input class='ic-column' value='' /></span></p>"
+   		);
+   });
+   $('#add_purchase_site').click(function (e) {
+   		e.preventDefault();
+   		$('#resource_purchase_site').append (
+   			"<p><span class='ic-label'><?php echo _('Purchase Site');?></span><span><input class='ic-column' value='' /></span></p>"
    		);
    });
    $('#add_isbnorissn').click(function (e) {
