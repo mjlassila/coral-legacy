@@ -233,4 +233,16 @@ setlocale(LC_ALL, $http_lang.".utf8");
 bindtextdomain("messages", dirname(__FILE__) . "/locale");
 textdomain("messages");
 
+// Function for opening UTF-8 files
+// from: https://secure.php.net/manual/en/function.fopen.php#104325
+
+function utf8_fopen_read($fileName) { 
+    $fc = iconv('windows-1250', 'utf-8', file_get_contents($fileName)); 
+    $handle=fopen("php://memory", "rw"); 
+    fwrite($handle, $fc); 
+    fseek($handle, 0); 
+    return $handle; 
+} 
+
+
 ?>
