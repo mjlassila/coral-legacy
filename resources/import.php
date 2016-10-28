@@ -130,6 +130,7 @@ if ($_POST['submit']) {
 			        jsonData.currentStartDate = $("#current_start_date").val();
 			        jsonData.currentEndDate = $("#current_end_date").val();
 			        jsonData.userLimit = $("#user_limit").val();
+			        jsonData.acquisitionType = $("#acquisition_type").val();
 			        jsonData.subject = [];
 			        $('div.subject-record').each(function() {
 			            var subjectObject={};
@@ -211,6 +212,7 @@ elseif ($_POST['matchsubmit']) {
 	$resourceCurrentStartDateColumn=intval($jsonData['currentStartDate'])-1;
 	$resourceCurrentEndDateColumn=intval($jsonData['currentEndDate'])-1;
 	$resourceUserLimitColumn=intval($jsonData['userLimit'])-1;
+	$resourceAcquisitionTypeColumn=intval($jsonData['acquisitionType'])-1;
 	
 	//get all resource formats
 	$resourceFormatArray = array();
@@ -237,6 +239,11 @@ elseif ($_POST['matchsubmit']) {
 	$userLimitArray = array();
 	$userLimitObj = new UserLimit();
 	$userLimitArray = $userLimitObj->allAsArray();
+
+	//get all acquisition types
+	$acquisitionTypeArray = array();
+	$acquisitionTypeObj = new AcquisitionType();
+	$acquisitionTypeObj = $acquisitionTypeObj->allAsArray();
 
 	//get all subjects
 	$generalSubjectArray = array();
@@ -389,6 +396,25 @@ elseif ($_POST['matchsubmit']) {
 						}
 					}
 
+					// If acquisition type is mapped, check to see if it exists
+					$acquisitionTypeID = null;
+					if ($jsonData['acquisitionType'] != '') {
+						$index = searchForShortName($data[$resourceAcquisitionTypeColumn], $acquisitionTypeArray);
+						if ($index !== null) {
+							$acquisitionTypeID = $acquisitionTypeArray[$index]['acquisitionTypeID'];
+						}
+						//If the acquisition type doesn't exist, add it to the database
+						else if ($index === null && $data[$resourceAcquisitionTypeColumn] != '')
+							{
+							$resourceAcquisitionTypeObj = new AcquisitionType();
+							$resourceAcquisitionTypeObj->shortName = $data[$resourceAcquisitionTypeColumn];
+							$resourceAcquisitionTypeObj->save();
+							$acquisitionTypeID = $resourceAcquisitionTypeObj->primaryKey;
+							$acquisitionTypeArray = $resourceAcquisitionTypeObj->allAsArray();
+							$acquisitionTypeInserted++;
+						}
+					}
+
 
 
 					// If Subject is mapped, check to see if it exists
@@ -432,22 +458,23 @@ elseif ($_POST['matchsubmit']) {
 					}
 
 					// Let's insert data
-					$resource->createLoginID    = $loginID;
-					$resource->createDate       = date( 'Y-m-d' );
-					$resource->updateLoginID    = '';
-					$resource->updateDate       = '';
-					$resource->titleText        = trim($data[$resourceTitleColumn]);
-					$resource->descriptionText  = trim($data[$resourceDescColumn]);
-					$resource->orderNumber      = trim($data[$resourceOrderNumberColumn]);
-					$resource->currentStartDate = trim($data[$resourceCurrentStartDateColumn]);
-					$resource->currentEndDate   = trim($data[$resourceCurrentEndDateColumn]);
-					$resource->resourceURL      = trim($data[$resourceURLColumn]);
-					$resource->resourceAltURL   = trim($data[$resourceAltURLColumn]);
-					$resource->resourceTypeID   = $resourceTypeID;
-					$resource->resourceFormatID = $resourceFormatID;
-					$resource->userLimitID      = $userLimitID;
-					//$resource->providerText     = $data[$_POST['providerText']];
-					$resource->statusID         = 1;
+					$resource->createLoginID     = $loginID;
+					$resource->createDate        = date( 'Y-m-d' );
+					$resource->updateLoginID     = '';
+					$resource->updateDate        = '';
+					$resource->titleText         = trim($data[$resourceTitleColumn]);
+					$resource->descriptionText   = trim($data[$resourceDescColumn]);
+					$resource->orderNumber       = trim($data[$resourceOrderNumberColumn]);
+					$resource->currentStartDate  = trim($data[$resourceCurrentStartDateColumn]);
+					$resource->currentEndDate    = trim($data[$resourceCurrentEndDateColumn]);
+					$resource->resourceURL       = trim($data[$resourceURLColumn]);
+					$resource->resourceAltURL    = trim($data[$resourceAltURLColumn]);
+					$resource->resourceTypeID    = $resourceTypeID;
+					$resource->resourceFormatID  = $resourceFormatID;
+					$resource->userLimitID       = $userLimitID;
+					$resource->acquisitionTypeID = $acquisitionTypeID;
+					//$resource->providerText    = $data[$_POST['providerText']];
+					$resource->statusID          = 1;
 					$resource->save();
 					$resource->setIsbnOrIssn($isbnIssn_values);
 					$inserted++;

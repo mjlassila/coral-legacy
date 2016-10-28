@@ -48,6 +48,8 @@
 				<p><span class="ic-label"><?php echo _("Alternate URL");?></span><span><input id='resource_altUrlCol' class="ic-column" value="<?php echo $configuration["altUrl"]?>" /></span></p>
 				<p><span class="ic-label"><?php echo _("Resource Format");?></span><span><input id="resource_format" class="ic-column" value="<?php echo $configuration["resourceFormat"]?>" /></span></p>
 				<p><span class="ic-label"><?php echo _("Resource Type");?></span><span><input id="resource_type" class="ic-column" value="<?php echo $configuration["resourceType"]?>" /></span></p>
+				<p><span class="ic-label"><?php echo _("Acquisition Type");?></span><span><input id="acquisition_type" class="ic-column" value="<?php echo $configuration["acquisitionType"]?>" /></span></p>
+
 				<p><span class="ic-label"><?php echo _("User Limit");?></span><span><input id="user_limit" class="ic-column" value="<?php echo $configuration["userLimit"]?>" /></span></p>
 				<p><span class="ic-label"><?php echo _("Sub Start");?></span><span><input id="current_start_date" class="ic-column" value="<?php echo $configuration["currentStartDate"]?>" /></span></p>
 				<p><span class="ic-label"><?php echo _("Current Sub End Date");?></span><span><input id="current_end_date" class="ic-column" value="<?php echo $configuration["currentEndDate"]?>" /></span></p>
