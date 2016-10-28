@@ -1,11 +1,7 @@
 <?php
 /**
- * /Users/majulass/Documents/2016/Coral.git/resources/import.php
+ * Coral/resources/import.php
  *
- * @package default
- * @param unknown $shortName
- * @param unknown $array
- * @return unknown
  */
 
 
@@ -44,7 +40,7 @@ if ($_POST['submit']) {
 	if (move_uploaded_file($_FILES['uploadFile']['tmp_name'], $uploadfile)) {
 		print '<p>'._("The file has been successfully uploaded.").'</p>';
 		// Let's analyze this file
-		if (($handle = fopen($uploadfile, "r")) !== FALSE) {
+		if (($handle = utf8_fopen_read($uploadfile)) !== FALSE) {
 			if (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
 				$columns_ok = true;
 				foreach ($data as $key => $value) {
@@ -215,8 +211,7 @@ elseif ($_POST['matchsubmit']) {
 	$resourceCurrentStartDateColumn=intval($jsonData['currentStartDate'])-1;
 	$resourceCurrentEndDateColumn=intval($jsonData['currentEndDate'])-1;
 	$resourceUserLimitColumn=intval($jsonData['userLimit'])-1;
-	error_log("===JSON data===");
-	error_log(var_dump($resourceOrderNumberColumn));
+	
 	//get all resource formats
 	$resourceFormatArray = array();
 	$resourceFormatObj = new ResourceFormat();
@@ -280,9 +275,8 @@ elseif ($_POST['matchsubmit']) {
 		$aliasInserted = 0;
 		$noteInserted = 0;
 		$arrayOrganizationsCreated = array();
+		$arrayPurchaseSitesCreated = array();
 		while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
-			error_log("===Parsed CSV data===");
-			error_log(var_dump($data));
 
 			// Getting column names again for deduping
 			if ($row == 0) {
@@ -296,7 +290,6 @@ elseif ($_POST['matchsubmit']) {
 				print ".</p>";
 			}
 			else {
-				error_log("Täällä");
 				if (trim($data[$resourceTitleColumn] == "")) //Skip resource if title reference is blank
 					{
 					continue;
@@ -337,12 +330,11 @@ elseif ($_POST['matchsubmit']) {
 					}
 				}
 				$deduping_count = count($resourceObj->getResourceByIsbnOrISSN($deduping_values));
-				error_log("Deduping count");
-				error_log(var_dump($deduping_count));
+
 				if ($deduping_count == 0) {
 					// Convert to UTF-8
 					$data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
-					error_log("Deduping-haarassa");
+
 					// If Resource Type is mapped, check to see if it exists
 					$resourceTypeID = null;
 					if ($jsonData['resourceType'] != '') {
@@ -381,12 +373,10 @@ elseif ($_POST['matchsubmit']) {
 
 					// If max user limit is mapped, check to see if it exists
 					$userLimitID = null;
-					error_log(var_dump($jsonData['userLimit']));
 					if ($jsonData['userLimit'] != '') {
 						$index = searchForShortName($data[$resourceUserLimitColumn], $userLimitArray);
 						if ($index !== null) {
 							$userLimitID = $userLimitArray[$index]['userLimitID'];
-							error_log(var_dump($userLimitID));
 						}
 						else if ($index === null && $data[$resourceUserLimitColumn] != '') //If user limit expression does not exist, add it to the database
 							{
@@ -441,7 +431,6 @@ elseif ($_POST['matchsubmit']) {
 						}
 					}
 
-					error_log(var_dump($data));
 					// Let's insert data
 					$resource->createLoginID    = $loginID;
 					$resource->createDate       = date( 'Y-m-d' );
@@ -459,7 +448,6 @@ elseif ($_POST['matchsubmit']) {
 					$resource->userLimitID      = $userLimitID;
 					//$resource->providerText     = $data[$_POST['providerText']];
 					$resource->statusID         = 1;
-					var_dump($resource);
 					$resource->save();
 					$resource->setIsbnOrIssn($isbnIssn_values);
 					$inserted++;
@@ -609,19 +597,102 @@ elseif ($_POST['matchsubmit']) {
 							$organizationLink->save();
 						}
 					}
+
+					// Do we have to create an purchase site or attach the resource to an existing one?
+					foreach ($jsonData['purchaseSite'] as $purchaseSite) {
+						if ($purchaseSite === "") //Skip purchase sites if column reference is blank
+							{
+							continue;
+						}
+
+
+
+						$purchaseSiteName = trim($data[intval($purchaseSite)-1]);
+
+						$purchaseSite = new PurchaseSite();
+
+						$purchaseSiteID = false;
+
+						// Search if such purchase site already exists
+						$purchaseSiteExists = $purchaseSite->alreadyExists($purchaseSiteName);
+						$parentID = null;
+						if (!$purchaseSiteExists) {
+							// If not, create it
+							$purchaseSite->shortName = $purchaseSiteName;
+							$purchaseSite->save();
+							$purchaseSiteID = $purchaseSite->purchaseSiteID();
+							$resourcePurchaseSiteInserted++;
+							array_push($arrayPurchaseSitesCreated, $purchaseSiteName);
+						}
+						elseif ($purchaseSiteExists == 1) {
+							$purchaseSiteID = $purchaseSite->getPurchaseSiteIDByName($purchaseSiteName);
+							$resourcePurchaseSiteAttached++;
+						}
+						else {
+							print "<p>"._("Error: more than one purchase site is called ").$purchaseSiteName._(" Please consider deduping.")."</p>";
+						}
+
+						// Let's link the resource and the purchase site.
+
+						if ($purchaseSiteID) {
+							$purchaseSiteLink = new ResourcePurchaseSiteLink();
+							$purchaseSiteLink->organizationRoleID = $roleID;
+							$purchaseSiteLink->resourceID = $resource->resourceID;
+							$purchaseSiteLink->purchaseSiteID = $purchaseSiteID;
+							$purchaseSiteLink->save();
+						}
+					}
+
+					foreach ($jsonData['parent'] as $parent) {
+						if ($parent === "") //Skip parent if column reference is blank
+							{
+							continue;
+						}
+						if ($data[intval($parent)-1] && ($deduping_count == 0 || $deduping_count == 1) ) // Do we have a parent resource to create?
+							{
+							// Search if such parent exists
+							$numberOfParents = count($resourceObj->getResourceByTitle($data[intval($parent)-1]));
+							$parentID = null;
+							if ($numberOfParents == 0) {
+								// If not, create parent
+								$parentResource = new Resource();
+								$parentResource->createLoginID = $loginID;
+								$parentResource->createDate    = date( 'Y-m-d' );
+								$parentResource->titleText     = $data[intval($parent)-1];
+								$parentResource->statusID      = 1;
+								$parentResource->save();
+								$parentID = $parentResource->resourceID;
+								$parentInserted++;
+							}
+							elseif ($numberOfParents == 1) {
+								// Else, attach the resource to its parent.
+								$parentResource = $resourceObj->getResourceByTitle($data[intval($parent)-1]);
+								$parentID = $parentResource[0]->resourceID;
+								$parentAttached++;
+							}
+							if ($numberOfParents == 0 || $numberOfParents == 1) {
+								$resourceRelationship = new ResourceRelationship();
+								$resourceRelationship->resourceID = $resource->resourceID;
+								$resourceRelationship->relatedResourceID = $parentID;
+								$resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
+								if (!$resourceRelationship->exists()) {
+									$resourceRelationship->save();
+								}
+							}
+						}
+					}
 				}
 			}
 
-		$row++;
+			$row++;
 		}
 
-		
+
 	}
 	print "<h2>"._("Results")."</h2>";
 	print "<p>" . ($row - 1) . _(" rows have been processed. ").$inserted._(" rows have been inserted.")."</p>";
 	print "<p>".$parentInserted._(" parents have been created. ").$parentAttached._(" resources have been attached to an existing parent.")."</p>";
 	print "<p>".$organizationsInserted._(" organizations have been created");
-	print "<p>".$purchaseSitesInserted._(" purchase sites have been created");
 	if (count($arrayOrganizationsCreated) > 0) {
 		print "<ol>";
 		foreach ($arrayOrganizationsCreated as $organization) {
@@ -630,7 +701,15 @@ elseif ($_POST['matchsubmit']) {
 		print "</ol>";
 	}
 	print ". $organizationsAttached" . _(" resources have been attached to an existing organization.") . "</p>";
-	print ". $purchaseSitesAttached" . _(" resources have been attached to an existing purchasing site.") . "</p>";
+	print "<p>".$resourcePurchaseSiteInserted._(" purchase sites have been created");
+	if (count($arrayPurchaseSitesCreated) > 0) {
+		print "<ol>";
+		foreach ($arrayPurchaseSitesCreated as $site) {
+			print "<li>" . $site . "</li>";
+		}
+		print "</ol>";
+	}
+	print ". $resourcePurchaseSiteAttached" . _(" resources have been attached to an existing purchasing site.") . "</p>";
 	print "<p>" . $resourceTypeInserted . _(" resource types have been created") . "</p>";
 	print "<p>" . $resourceFormatInserted . _(" resource formats have been created") . "</p>";
 	print "<p>" . $generalSubjectInserted . _(" general subjects have been created") . "</p>";
