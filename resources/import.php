@@ -339,9 +339,6 @@ elseif ($_POST['matchsubmit']) {
 				$deduping_count = count($resourceObj->getResourceByIsbnOrISSN($deduping_values));
 
 				if ($deduping_count == 0) {
-					// Convert to UTF-8
-					$data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
-
 					// If Resource Type is mapped, check to see if it exists
 					$resourceTypeID = null;
 					if ($jsonData['resourceType'] != '') {
