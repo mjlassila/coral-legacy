@@ -40,7 +40,7 @@ if ($_POST['submit']) {
 	if (move_uploaded_file($_FILES['uploadFile']['tmp_name'], $uploadfile)) {
 		print '<p>'._("The file has been successfully uploaded.").'</p>';
 		// Let's analyze this file
-		if (($handle = utf8_fopen_read($uploadfile)) !== FALSE) {
+		if (($handle = fopen($uploadfile,'r')) !== FALSE) {
 			if (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
 				$columns_ok = true;
 				foreach ($data as $key => $value) {
@@ -339,6 +339,9 @@ elseif ($_POST['matchsubmit']) {
 				$deduping_count = count($resourceObj->getResourceByIsbnOrISSN($deduping_values));
 
 				if ($deduping_count == 0) {
+					// Convert to UTF-8
+					$data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
+
 					// If Resource Type is mapped, check to see if it exists
 					$resourceTypeID = null;
 					if ($jsonData['resourceType'] != '') {
