@@ -340,7 +340,7 @@ elseif ($_POST['matchsubmit']) {
 
 				if ($deduping_count == 0) {
 					// Convert to UTF-8
-					$data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
+					// $data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
 
 					// If Resource Type is mapped, check to see if it exists
 					$resourceTypeID = null;
