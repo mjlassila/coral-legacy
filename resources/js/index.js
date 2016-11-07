@@ -81,6 +81,12 @@ $(document).ready(function(){
 	      if(e.keyCode == 13) {
 		updateSearch();
 	      }
+	});
+
+	$('#searchOrderNumber').keyup(function(e) {
+	      if(e.keyCode == 13) {
+		updateSearch();
+	      }
 	});     
 	
 	
@@ -244,11 +250,14 @@ function setNumberOfRecords(recordsPerPageNumber){
   	$("#div_searchCreateDate").css({'display':'block'}); 
   });
   $("#searchCurrentStartDate").change(function () {
-  	$("#div_currentStartDate").css({'display':'block'}); 
+  	$("#div_searchCurrentStartDate").css({'display':'block'}); 
   });
   $("#searchCurrentEndDate").change(function () {
   	$("#div_searchCurrentEndDate").css({'display':'block'}); 
-  });  
+  });
+  $("#searchOrderNumber").focus(function () {
+  	$("#div_searchOrderNumber").css({'display':'block'}); 
+  }); 
   
   
   $("#showMoreOptions").click(function () {

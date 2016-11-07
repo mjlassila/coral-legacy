@@ -1039,6 +1039,12 @@ class Resource extends DatabaseObject {
 			$whereAdd[] = "R.resourceID = '" . $resource->db->escapeString($search['resourceID']) . "'";
 			$searchDisplay[] = "Resource ID: " . $search['resourceID'];
 		}
+
+		if ($search['orderNumber']) {
+			$whereAdd[] = "R.orderNumber = '" . $resource->db->escapeString($search['orderNumber']) . "'";
+			$searchDisplay[] = "Order ID: " . $search['orderNumber'];
+		}
+
 		if ($search['resourceISBNOrISSN']) {
 			$resourceISBNOrISSN = $resource->db->escapeString(str_replace("-","",$search['resourceISBNOrISSN']));
 			$whereAdd[] = "REPLACE(I.isbnOrIssn,'-','') = '" . $resourceISBNOrISSN . "'";
